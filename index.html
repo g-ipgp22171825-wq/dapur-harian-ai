@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Dapur Harian AI membantu anda mencari idea masakan mengikut bahan, bajet, masa dan citarasa.">
+<title>Dapur Harian AI | Idea Masakan Setiap Hari</title>
+<style>
+:root{--cream:#fff8ed;--paper:#fffdf8;--chocolate:#5a3828;--brown:#80553f;--caramel:#d9a66f;--ink:#35251d;--muted:#7e7169;--line:#eadccf;--green:#53745a}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(135deg,#fbf0df,#f7e7d3);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);min-height:100vh;padding:24px 14px}
+.app{max-width:900px;margin:0 auto;background:var(--paper);border:1px solid #ead8c4;border-radius:24px;overflow:hidden;box-shadow:0 18px 55px #5a38281a}
+header{background:var(--chocolate);color:#fff8ed;padding:24px 26px;display:flex;align-items:center;gap:15px}
+.logo{width:54px;height:54px;display:grid;place-items:center;border-radius:17px;background:#fff0d9;color:var(--chocolate);font-size:29px;flex-shrink:0}
+h1{font-size:clamp(1.3rem,3vw,1.8rem);margin:0 0 4px;letter-spacing:-.03em}
+header p{margin:0;color:#ead9c9;font-size:.92rem}
+.status{margin-left:auto;align-self:flex-start;background:#41684b;color:white;border-radius:999px;padding:6px 10px;font-size:.72rem;white-space:nowrap}
+.intro{padding:18px 24px 8px;color:var(--muted);font-size:.92rem;line-height:1.6}
+.chat{padding:12px 20px 20px;min-height:350px;max-height:54vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
+.message{max-width:min(84%,640px);padding:13px 15px;border-radius:17px;line-height:1.55;font-size:.95rem;overflow-wrap:anywhere}
+.bot{align-self:flex-start;background:#f5eadb;border-bottom-left-radius:5px}
+.user{align-self:flex-end;background:var(--chocolate);color:#fffaf3;border-bottom-right-radius:5px}
+.message strong{color:inherit}
+.message ul,.message ol{padding-left:20px;margin:7px 0}
+.message li{margin:4px 0}
+.recipe-title{font-size:1.08rem;font-weight:800;margin-bottom:5px}
+.recipe-meta{font-size:.83rem;color:#6c5547;margin-bottom:8px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;padding:0 20px 16px}
+.chip{border:1px solid #d9b995;background:#fffaf2;color:var(--chocolate);border-radius:999px;padding:9px 13px;cursor:pointer;font:inherit;font-size:.88rem;transition:.15s}
+.chip:hover,.chip:focus{background:#f2dfc7;outline:2px solid #d9b995;outline-offset:1px}
+.composer{display:flex;gap:10px;padding:16px 20px 20px;border-top:1px solid var(--line);background:#fffaf3}
+.composer input{min-width:0;flex:1;border:1px solid #d8c6b5;border-radius:14px;padding:13px 14px;font:inherit;background:white;color:var(--ink)}
+.composer input:focus{outline:2px solid #d9a66f;border-color:transparent}
+.composer button{border:0;border-radius:14px;padding:0 18px;background:var(--chocolate);color:white;font:inherit;font-weight:700;cursor:pointer}
+.composer button:hover{background:#714a35}
+footer{text-align:center;color:#8c7d72;font-size:.78rem;padding:0 18px 18px}
+.small-note{font-size:.82rem;color:#77685e}
+@media(max-width:560px){body{padding:0;background:var(--paper)}.app{border-radius:0;border:0;min-height:100vh}.status{display:none}header{padding:19px 17px}.intro{padding:15px 16px 5px}.chat{padding:12px 13px 18px;max-height:57vh;min-height:330px}.message{max-width:91%;font-size:.92rem}.chips{padding:0 13px 14px}.composer{padding:13px}.composer button{padding:0 14px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo" aria-hidden="true">🍲</div>
+    <div>
+      <h1>Dapur Harian AI</h1>
+      <p>Idea masakan yang sesuai dengan dapur dan bajet anda.</p>
+    </div>
+    <div class="status">● Online demo</div>
+  </header>
+  <div class="intro">Beritahu saya apa yang anda ada, berapa bajet anda dan berapa lama masa untuk memasak. Kita cari menu yang sesuai bersama-sama!</div>
+  <main id="chat" class="chat" aria-live="polite" aria-label="Perbualan chatbot"></main>
+  <div id="chips" class="chips" aria-label="Pilihan jawapan"></div>
+  <form id="composer" class="composer">
+    <input id="userInput" type="text" placeholder="Taip jawapan anda..." autocomplete="off" aria-label="Taip mesej">
+    <button type="submit">Hantar ➤</button>
+  </form>
+  <footer>Demo projek pembelajaran · Cadangan kos adalah anggaran dan boleh berubah mengikut lokasi.</footer>
+</div>
+<script>
+const chat = document.getElementById("chat");
+const chips = document.getElementById("chips");
+const form = document.getElementById("composer");
+const input = document.getElementById("userInput");
+
+const state = {step:"cuisine", cuisine:"", ingredients:"", budget:20, meal:"Makan malam", time:30, diet:"Tiada pantang khusus"};
+const options = {
+  cuisine:["Masakan Malaysia","Western","Masakan Asia","Apa-apa sahaja"],
+  budget:["RM10","RM20","RM30"],
+  meal:["Sarapan","Makan tengah hari","Makan malam","Snek"],
+  time:["15 minit","30 minit","45 minit atau lebih"],
+  diet:["Tiada pantang khusus","Kurang pedas","Vegetarian"]
+};
+function addMessage(content, who="bot", isHtml=false){
+  const div=document.createElement("div");
+  div.className="message "+who;
+  if(isHtml) div.innerHTML=content; else div.textContent=content;
+  chat.appendChild(div); chat.scrollTop=chat.scrollHeight;
+}
+function showChips(items){
+  chips.innerHTML="";
+  items.forEach(label=>{
+    const b=document.createElement("button");
+    b.type="button"; b.className="chip"; b.textContent=label;
+    b.addEventListener("click",()=>handleInput(label));
+    chips.appendChild(b);
+  });
+}
+function ask(step, message, buttons){
+  state.step=step;
+  addMessage(message);
+  showChips(buttons||[]);
+}
+function normal(s){return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
+function handleInput(raw){
+  const value=raw.trim();
+  if(!value) return;
+  addMessage(value,"user");
+  input.value="";
+  const v=normal(value);
+
+  if(["mula semula","mula balik","restart","reset"].includes(v)){
+    Object.assign(state,{step:"cuisine",cuisine:"",ingredients:"",budget:20,meal:"Makan malam",time:30,diet:"Tiada pantang khusus"});
+    addMessage("Baik, kita mula semula! Saya akan bantu cari idea masakan yang sesuai.");
+    ask("cuisine","Anda lebih suka masakan yang mana?",options.cuisine);
+    return;
+  }
+  if(state.step==="result"){
+    if(v.includes("lain")||v.includes("cadangan")||v.includes("lagi")){
+      recommend(true); return;
+    }
+    if(v.includes("mula")||v.includes("ubah")||v.includes("tukar")){
+      ask("cuisine","Jom ubah pilihan. Anda lebih suka masakan yang mana?",options.cuisine);return;
+    }
+    addMessage("Anda boleh pilih “Cadangan lain”, atau taip “mula semula” untuk mengubah pilihan. Jika saya tidak memahami permintaan anda, cuba nyatakan bahan atau jenis hidangan yang diingini.");
+    showChips(["Cadangan lain","Mula semula"]);return;
+  }
+  if(state.step==="cuisine"){
+    state.cuisine=value;
+    ask("ingredients","Baik! Apakah bahan yang ada di dapur anda? Contoh: ayam, telur, nasi, kentang, bawang atau sayur.",["Ayam, nasi, telur dan sayur","Ayam, kentang, bawang dan santan","Telur dan sayur"]);
+  } else if(state.step==="ingredients"){
+    state.ingredients=value;
+    ask("budget","Berapakah bajet untuk hidangan ini?",options.budget);
+  } else if(state.step==="budget"){
+    const n=value.match(/\d+/);
+    state.budget=n?Math.max(1,Math.min(500,Number(n[0]))):20;
+    ask("meal","Hidangan ini untuk waktu makan yang mana?",options.meal);
+  } else if(state.step==="meal"){
+    state.meal=value;
+    ask("time","Berapa lama masa yang anda ada untuk memasak?",options.time);
+  } else if(state.step==="time"){
+    const n=value.match(/\d+/);
+    state.time=n?Number(n[0]):30;
+    ask("diet","Ada pilihan makanan atau keperluan khas?",options.diet);
+  } else if(state.step==="diet"){
+    state.diet=value;
+    recommend(false);
+  } else {
+    addMessage("Maaf, saya kurang memahami jawapan itu. Boleh cuba nyatakan semula? Contohnya: “Saya ada ayam dan nasi” atau pilih salah satu pilihan di bawah.");
+    showChips(options.cuisine);
+  }
+}
+const recipes=[
+ {name:"Nasi Goreng Ayam",cuisine:["malaysia","apa-apa","apa apa"],keys:["ayam","nasi"],time:20,cost:10,meal:["tengah","malam","lunch"],ingredients:["Nasi sejuk","Ayam dipotong kecil","Bawang putih","Sayur pilihan","Kicap, garam dan lada"],steps:["Potong ayam kecil-kecil dan cincang bawang putih.","Masak ayam dalam kuali sehingga masak sepenuhnya.","Masukkan sayur, kemudian nasi dan kicap.","Kacau-goreng hingga panas sekata. Hidangkan segera."]},
+ {name:"Kari Ayam Kentang",cuisine:["malaysia","asia","apa-apa"],keys:["ayam","kentang"],time:40,cost:18,meal:["tengah","malam"],ingredients:["Ayam","Kentang","Bawang","Pes kari","Santan atau air"],steps:["Tumis bawang dan pes kari sehingga naik bau.","Masukkan ayam dan gaul bersama rempah.","Masukkan kentang serta santan atau air secukupnya.","Reneh sehingga ayam masak sepenuhnya dan kentang lembut. Kacau sekali-sekala."]},
+ {name:"Ayam Kicap Kentang",cuisine:["malaysia","asia","apa-apa"],keys:["ayam","kentang"],time:30,cost:15,meal:["tengah","malam"],ingredients:["Ayam","Kentang","Bawang putih dan bawang merah","Kicap","Sedikit air, garam dan lada"],steps:["Goreng atau pan-sear kentang sehingga hampir lembut.","Tumis bawang, kemudian masukkan ayam dan masak hingga hampir masak.","Tambah kicap dan sedikit air.","Masukkan kentang dan reneh hingga ayam masak sepenuhnya serta kuah sebati."]},
+ {name:"Telur Dadar Sayur",cuisine:["malaysia","asia","western","apa-apa"],keys:["telur","sayur"],time:15,cost:7,meal:["sarapan","snek","tengah"],ingredients:["Telur","Sayur cincang","Bawang","Garam dan lada","Sedikit minyak"],steps:["Pukul telur bersama garam dan lada.","Campurkan sayur serta bawang cincang.","Panaskan sedikit minyak dan tuang adunan.","Masak kedua-dua belah hingga telur masak sepenuhnya. Hidangkan bersama nasi atau roti."]},
+ {name:"Sup Ayam Ringkas",cuisine:["malaysia","asia","apa-apa"],keys:["ayam"],time:35,cost:16,meal:["tengah","malam"],ingredients:["Ayam","Bawang putih dan bawang","Kentang atau lobak jika ada","Air","Garam dan lada"],steps:["Tumis bawang jika mahu kuah lebih beraroma.","Masukkan ayam dan air secukupnya.","Tambah kentang atau sayur yang ada.","Reneh hingga ayam masak sepenuhnya dan sayur lembut. Perasakan secukupnya."]},
+ {name:"Sandwic Telur",cuisine:["western","apa-apa"],keys:["telur","roti"],time:10,cost:6,meal:["sarapan","snek"],ingredients:["Roti","Telur","Sedikit mayonis atau mentega jika ada","Lada dan sayur pilihan"],steps:["Rebus telur hingga masak sepenuhnya, kemudian kupas.","Lenyek telur dan gaul dengan sedikit mayonis atau mentega.","Tambah lada dan sayur jika suka.","Sapukan pada roti dan potong sebelum dihidangkan."]},
+ {name:"Pasta Ayam Ringkas",cuisine:["western","apa-apa"],keys:["ayam","pasta"],time:25,cost:17,meal:["tengah","malam"],ingredients:["Pasta","Ayam","Bawang putih","Sos tomato atau sos pasta","Sayur pilihan"],steps:["Rebus pasta mengikut arahan pada bungkusan.","Potong ayam kecil-kecil dan masak sepenuhnya dalam kuali.","Tumis bawang putih, masukkan sos dan sedikit air pasta.","Gaul bersama pasta dan sayur sehingga panas sekata."]},
+ {name:"Nasi Goreng Sayur",cuisine:["malaysia","asia","apa-apa"],keys:["nasi","sayur"],time:15,cost:7,meal:["sarapan","tengah","malam"],ingredients:["Nasi sejuk","Sayur campur","Bawang putih","Kicap atau garam","Telur pilihan"],steps:["Tumis bawang putih hingga harum.","Masukkan sayur dan masak sebentar.","Tambah nasi serta kicap atau garam.","Kacau-goreng sehingga panas sekata. Tambah telur jika sesuai dengan diet anda."]},
+ {name:"Mi Goreng Ringkas",cuisine:["malaysia","asia","apa-apa"],keys:["mi","mee","sayur"],time:20,cost:9,meal:["tengah","malam"],ingredients:["Mi kuning atau mi segera","Sayur","Bawang putih","Kicap atau sos pilihan","Telur atau tauhu pilihan"],steps:["Sediakan mi mengikut arahan pada bungkusan.","Tumis bawang putih dan masukkan sayur.","Masukkan mi dan sos pilihan, kemudian gaul rata.","Tambah telur atau tauhu jika mahu dan masak hingga semua bahan panas."]},
+ {name:"Sayur Tumis bersama Telur",cuisine:["asia","malaysia","apa-apa"],keys:["telur","sayur"],time:15,cost:8,meal:["tengah","malam"],ingredients:["Telur","Sayur yang ada","Bawang putih","Sedikit minyak","Garam atau kicap"],steps:["Potong sayur dan cincang bawang putih.","Tumis bawang, kemudian masukkan sayur yang mengambil masa lebih lama untuk masak.","Masukkan telur dan kacau sehingga masak sepenuhnya.","Perasakan dan hidangkan bersama nasi jika ada."]}
+];
+function cuisineMatch(recipe,c){
+  const x=normal(c);
+  if(x.includes("western")) return recipe.cuisine.includes("western")||recipe.cuisine.includes("apa-apa");
+  if(x.includes("asia")) return recipe.cuisine.includes("asia")||recipe.cuisine.includes("apa-apa");
+  if(x.includes("malaysia")) return recipe.cuisine.includes("malaysia")||recipe.cuisine.includes("apa-apa");
+  return true;
+}
+function recipeScore(r, ingredientText, meal, time, diet){
+  const ing=normal(ingredientText), m=normal(meal), d=normal(diet);
+  let score=0;
+  r.keys.forEach(k=>{if(ing.includes(normal(k)))score+=4;});
+  if(m.includes("sarapan")&&r.meal.includes("sarapan"))score+=4;
+  if(m.includes("snek")&&r.meal.includes("snek"))score+=4;
+  if((m.includes("tengah")||m.includes("malam"))&&r.meal.some(x=>m.includes(x)))score+=3;
+  if(r.time<=time)score+=2; else score-=Math.min(6,Math.ceil((r.time-time)/10));
+  if(r.cost<=state.budget)score+=3; else score-=Math.min(5,Math.ceil((r.cost-state.budget)/5));
+  if(d.includes("vegetarian")||d.includes("vegan")){
+    if(r.name.includes("Sayur")||r.name.includes("Telur Dadar"))score+=10;else score-=20;
+  }
+  if(d.includes("kurang pedas")&&r.name.includes("Kari"))score-=2;
+  return score;
+}
+let lastRecipe=null;
+function recommend(alternate){
+  let candidates=recipes.filter(r=>cuisineMatch(r,state.cuisine));
+  if(state.diet.toLowerCase().includes("vegetarian")) candidates=candidates.filter(r=>r.name.includes("Sayur")||r.name.includes("Telur Dadar"));
+  candidates.sort((a,b)=>recipeScore(b,state.ingredients,state.meal,state.time,state.diet)-recipeScore(a,state.ingredients,state.meal,state.time,state.diet));
+  let chosen=candidates.find(r=>r!==lastRecipe)||candidates[0];
+  if(alternate&&lastRecipe&&chosen===lastRecipe)chosen=candidates[1]||candidates[0];
+  lastRecipe=chosen;
+  if(!chosen){
+    addMessage("Maaf, saya belum ada resipi yang sesuai dengan gabungan pilihan itu. Cuba pilih masakan lain atau taip bahan yang ada, contohnya ayam, nasi, telur atau sayur.");
+    showChips(["Masakan Malaysia","Western","Masakan Asia","Mula semula"]);
+    state.step="result";return;
+  }
+  const ingredients=chosen.ingredients.map(x=>`<li>${escapeHtml(x)}</li>`).join("");
+  const steps=chosen.steps.map(x=>`<li>${escapeHtml(x)}</li>`).join("");
+  const costNote=chosen.cost>state.budget?"Anggaran kos resipi ini mungkin melebihi bajet anda; kurangkan bahan tambahan atau pilih resipi lebih ringkas.":"Anggaran kos bahan tambahan: sekitar RM"+chosen.cost+" (berbeza mengikut lokasi dan bahan yang sudah ada).";
+  const html=`<div class="recipe-title">🍽️ ${escapeHtml(chosen.name)}</div>
+  <div class="recipe-meta">⏱️ Kira-kira ${chosen.time} minit · 💰 Anggaran RM${chosen.cost}</div>
+  <p><strong>Kenapa cadangan ini?</strong> Berdasarkan bahan, jenis hidangan, masa dan bajet yang anda berikan.</p>
+  <p><strong>Bahan yang diperlukan</strong></p><ul>${ingredients}</ul>
+  <p><strong>Cara memasak</strong></p><ol>${steps}</ol>
+  <p class="small-note">${escapeHtml(costNote)}</p>
+  <p class="small-note">Keselamatan makanan: pastikan ayam dimasak sepenuhnya sebelum dimakan.</p>`;
+  addMessage(html,"bot",true);
+  addMessage("Nak cuba cadangan lain atau mula semula dengan pilihan baharu?");
+  state.step="result";
+  showChips(["Cadangan lain","Mula semula"]);
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+form.addEventListener("submit",e=>{e.preventDefault();handleInput(input.value);});
+addMessage("Hai! 👋 Selamat datang ke Dapur Harian AI. Saya boleh cadangkan resipi berdasarkan bahan yang ada, bajet dan masa memasak anda.");
+ask("cuisine","Anda lebih suka masakan yang mana?",options.cuisine);
+</script>
+</body>
+</html>
